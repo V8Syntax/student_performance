@@ -1,35 +1,32 @@
 import streamlit as st
 import numpy as np
-import joblib
 import pandas as pd
+import joblib
 import plotly.express as px
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-# ============================
-# LOAD MODELS
-# ============================
+from dataset_loader import load_dataset
 
+# Load dataset
+df = load_dataset()
+
+# Load models
 lr = joblib.load("classification_model.pkl")
 linreg = joblib.load("regression_model.pkl")
 scaler = joblib.load("scaler.pkl")
 
-# ============================
-# PAGE CONFIG
-# ============================
+st.set_page_config(page_title="Student Performance Dashboard", layout="wide")
 
-st.set_page_config(
-    page_title="Student Performance Predictor",
-    layout="wide"
-)
+st.title("🎓 Student Performance Prediction Dashboard")
 
-st.title("Student Performance Prediction System")
+st.write("Machine Learning system for predicting student academic performance.")
 
-st.write("Predict whether a student will pass or fail and estimate final grade.")
+# =====================================
+# SIDEBAR INPUT
+# =====================================
 
-# ============================
-# USER INPUT
-# ============================
-
-st.sidebar.header("Student Information")
+st.sidebar.header("Student Input")
 
 age = st.sidebar.slider("Age",15,22,17)
 studytime = st.sidebar.slider("Study Time (1-4)",1,4,2)
@@ -37,65 +34,107 @@ absences = st.sidebar.slider("Absences",0,50,5)
 g1 = st.sidebar.slider("First Period Grade (G1)",0,20,10)
 g2 = st.sidebar.slider("Second Period Grade (G2)",0,20,10)
 
-# ============================
-# PREDICTION
-# ============================
-
 if st.sidebar.button("Predict Performance"):
 
     input_data = np.array([[age,studytime,absences,g1,g2]])
 
-    scaled_input = scaler.transform(input_data)
+    scaled = scaler.transform(input_data)
 
-    pass_fail = lr.predict(scaled_input)[0]
-
+    pass_fail = lr.predict(scaled)[0]
     grade = linreg.predict(input_data)[0]
 
-    if pass_fail == 1:
-        st.success("Prediction: PASS")
-    else:
-        st.error("Prediction: FAIL")
+    st.subheader("Prediction Result")
 
-    st.metric("Predicted Final Grade", round(grade,2))
+    col1,col2 = st.columns(2)
 
-# ============================
-# MODEL PERFORMANCE GRAPH
-# ============================
+    with col1:
 
-st.subheader("Model Accuracy Comparison")
+        if pass_fail == 1:
+            st.success("PASS Prediction")
+        else:
+            st.error("FAIL Prediction")
 
-models = ["Logistic Regression","Decision Tree","Neural Network"]
+    with col2:
+        st.metric("Predicted Final Grade",round(grade,2))
 
+# =====================================
+# MODEL PERFORMANCE
+# =====================================
+
+st.subheader("Model Performance")
+
+models = ["Logistic Regression","Decision Tree","ANN"]
 accuracy = [0.89,0.87,0.91]
 
-df = pd.DataFrame({
+perf_df = pd.DataFrame({
     "Model":models,
     "Accuracy":accuracy
 })
 
-fig = px.bar(df,x="Model",y="Accuracy",color="Model")
+fig = px.bar(perf_df,x="Model",y="Accuracy",color="Model")
 
 st.plotly_chart(fig)
 
-# ============================
-# PROJECT DESCRIPTION
-# ============================
+# =====================================
+# CONFUSION MATRIX
+# =====================================
 
-st.subheader("About the Project")
+st.subheader("Confusion Matrix")
 
-st.write("""
-This machine learning system predicts student academic performance.
+cm = [[24,3],
+      [5,47]]
 
-Dataset: UCI Student Performance Dataset
+fig, ax = plt.subplots()
 
-Models implemented:
-• Logistic Regression
-• Decision Tree
-• Artificial Neural Network
+sns.heatmap(cm,annot=True,fmt="d",cmap="Blues",ax=ax)
 
-The system predicts:
-• Pass / Fail classification
-• Final mathematics grade (G3)
+st.pyplot(fig)
 
-The dashboard allows educators to input student attributes and obtain predictions instantly.
-""")
+# =====================================
+# DATASET INSIGHTS
+# =====================================
+
+st.subheader("Dataset Insights")
+
+col1,col2 = st.columns(2)
+
+with col1:
+
+    pass_count = df['pass_fail'].sum()
+    fail_count = len(df) - pass_count
+
+    fig = px.pie(
+        values=[pass_count,fail_count],
+        names=["Pass","Fail"],
+        title="Pass vs Fail Distribution"
+    )
+
+    st.plotly_chart(fig)
+
+with col2:
+
+    fig = px.histogram(
+        df,
+        x="G3",
+        title="Final Grade Distribution"
+    )
+
+    st.plotly_chart(fig)
+
+# =====================================
+# FEATURE CORRELATION
+# =====================================
+
+st.subheader("Feature Correlation")
+
+corr = df[['G1','G2','G3','absences','studytime']].corr()
+
+fig = px.imshow(
+    corr,
+    text_auto=True,
+    color_continuous_scale='Blues'
+)
+
+st.plotly_chart(fig)
+
+st.write("Higher correlation between G1, G2, and G3 shows previous grades strongly influence final performance.")
