@@ -55,7 +55,7 @@ if st.sidebar.button("Predict Performance"):
             st.error("FAIL Prediction")
 
     with col2:
-        st.metric("Predicted Final Grade",round(grade,2))
+        st.metric("Predicted Final Maths Grade (G3)", round(grade,2))
 
 # =====================================
 # MODEL PERFORMANCE
